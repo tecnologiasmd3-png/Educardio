@@ -1,0 +1,734 @@
+<title>CardioRitmo</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;600&display=swap" rel="stylesheet">
+<style>
+/* Layout concept: a quiet wall of four named cards; clicking a title opens a
+   bedside-monitor panel for that arrhythmia, with its live ECG trace, its
+   explanation and its management flowchart one tap apart. */
+:root{
+  --surface-50:#f3f7fa; --surface-100:#ffffff; --surface-200:#eaf1f6; --surface-300:#dbe6ee;
+  --ink:#0f1824; --ink-muted:#51637a; --line:#d2dee8; --grid:#dcebe8;
+  --brand:#0b6e82; --brand-strong:#084f5e; --on-brand:#ffffff; --accent:#4a3ff2;
+  --trace:#0ea65e;
+  --status-afib:#9a6307; --status-afib-soft:#fbead0;
+  --status-svt:#0b6e82; --status-svt-soft:#dcf1f4;
+  --status-vt:#b1430c; --status-vt-soft:#fbe0d1;
+  --status-vf:#b4131f; --status-vf-soft:#fbdadd;
+  --warning:#9a6307; --success:#157a46; --danger:#b4131f;
+  color-scheme:light;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --surface-50:#0a1120; --surface-100:#121a2e; --surface-200:#1a2440; --surface-300:#223055;
+    --ink:#eaf1f8; --ink-muted:#93a4c2; --line:#28355a; --grid:#123327;
+    --brand:#36c0d6; --brand-strong:#1c94a8; --on-brand:#04141a; --accent:#9b93ff;
+    --trace:#35e08c;
+    --status-afib:#f5a93c; --status-afib-soft:rgba(245,169,60,.16);
+    --status-svt:#36c0d6; --status-svt-soft:rgba(54,192,214,.16);
+    --status-vt:#ff8a4c; --status-vt-soft:rgba(255,138,76,.16);
+    --status-vf:#ff5b63; --status-vf-soft:rgba(255,91,99,.18);
+    --warning:#f5a93c; --success:#4fd68c; --danger:#ff5b63;
+    color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --surface-50:#0a1120; --surface-100:#121a2e; --surface-200:#1a2440; --surface-300:#223055;
+  --ink:#eaf1f8; --ink-muted:#93a4c2; --line:#28355a; --grid:#123327;
+  --brand:#36c0d6; --brand-strong:#1c94a8; --on-brand:#04141a; --accent:#9b93ff;
+  --trace:#35e08c;
+  --status-afib:#f5a93c; --status-afib-soft:rgba(245,169,60,.16);
+  --status-svt:#36c0d6; --status-svt-soft:rgba(54,192,214,.16);
+  --status-vt:#ff8a4c; --status-vt-soft:rgba(255,138,76,.16);
+  --status-vf:#ff5b63; --status-vf-soft:rgba(255,91,99,.18);
+  --warning:#f5a93c; --success:#4fd68c; --danger:#ff5b63;
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+body{background:var(--surface-50);color:var(--ink);font-family:'Inter',system-ui,-apple-system,'Segoe UI',sans-serif}
+.wrap{max-width:1120px;margin:0 auto;padding-inline:20px;padding-block:28px 56px}
+h1,h2,h3{text-wrap:balance;margin:0}
+p{margin:0}
+.mono{font-family:'JetBrains Mono',ui-monospace,'SFMono-Regular',Menlo,monospace;font-variant-numeric:tabular-nums}
+
+/* ---------- header ---------- */
+.top{display:flex;flex-direction:column;gap:14px;margin-bottom:28px}
+.brandrow{display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+.brandmark{display:flex;align-items:center;gap:10px}
+.logo-badge{width:34px;height:34px;flex-shrink:0;border-radius:10px;background:var(--brand);display:flex;align-items:center;justify-content:center}
+.logo-badge svg{width:22px;height:14px;stroke:var(--on-brand);fill:none;stroke-width:2.4;stroke-linecap:round;stroke-linejoin:round}
+.wordmark{font-size:22px;font-weight:800;letter-spacing:-0.01em}
+.sources-pill{margin-left:auto;display:inline-flex;align-items:center;gap:6px;border:1px solid var(--line);background:var(--surface-100);color:var(--ink-muted);font-size:12px;font-weight:600;letter-spacing:.03em;text-transform:uppercase;padding:6px 12px;border-radius:999px}
+.sources-pill .dot{width:6px;height:6px;border-radius:50%;background:var(--trace)}
+.tagline{color:var(--ink-muted);font-size:15px;max-width:68ch}
+.intro{font-size:16px;line-height:1.6;max-width:66ch;color:var(--ink)}
+.intro strong{color:var(--ink)}
+
+/* ---------- board: title-first cards ---------- */
+.board{display:grid;grid-template-columns:1fr 1fr;gap:18px;margin-top:26px}
+@media (max-width:720px){ .board{grid-template-columns:1fr} }
+
+.quad{position:relative;text-align:left;background:var(--surface-100);border:1.5px solid var(--line);border-radius:20px;padding:22px 22px 20px;cursor:pointer;display:flex;flex-direction:column;gap:16px;transition:border-color .18s ease, box-shadow .18s ease, transform .18s ease;box-shadow:0 8px 22px rgba(15,24,36,.07);font:inherit;color:inherit;appearance:none}
+.quad:hover,.quad:focus-visible{box-shadow:0 18px 38px rgba(15,24,36,.14);transform:translateY(-2px)}
+.quad:focus-visible{outline:2px solid var(--stat);outline-offset:3px}
+.quad--afib{--stat:var(--status-afib);--stat-soft:var(--status-afib-soft)}
+.quad--svt{--stat:var(--status-svt);--stat-soft:var(--status-svt-soft)}
+.quad--vt{--stat:var(--status-vt);--stat-soft:var(--status-vt-soft)}
+.quad--vf{--stat:var(--status-vf);--stat-soft:var(--status-vf-soft)}
+.quad:hover{border-color:var(--stat)}
+
+.quad-head{display:flex;align-items:flex-start;justify-content:space-between;gap:10px}
+.quad-icon{width:34px;height:34px;border-radius:9px;background:var(--stat-soft);display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.quad-icon svg{width:20px;height:13px;stroke:var(--stat);fill:none;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round}
+.quad-badge{flex-shrink:0;font-size:11px;font-weight:700;letter-spacing:.03em;padding:5px 10px;border-radius:999px;background:var(--stat-soft);color:var(--stat);white-space:nowrap}
+
+.quad-eyebrow{font-size:12px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--stat)}
+.quad-title{font-size:23px;font-weight:700;margin-top:3px}
+
+.quad-foot{display:flex;align-items:center;justify-content:space-between;gap:10px;color:var(--ink-muted);font-size:13px;padding-top:4px;border-top:1px solid var(--line)}
+.quad-hint{display:inline-flex;align-items:center;gap:6px}
+.chev{transition:transform .18s ease}
+.quad:hover .chev{transform:translateX(3px)}
+
+/* ---------- footer ---------- */
+.site-footer{margin-top:40px;padding-top:22px;border-top:1px solid var(--line);color:var(--ink-muted);font-size:13px;line-height:1.7}
+.site-footer a{color:var(--brand)}
+.site-footer ul{margin:8px 0 0;padding-left:18px}
+
+/* ---------- modal ---------- */
+.overlay{position:fixed;inset:0;background:rgba(6,12,22,.56);display:flex;align-items:center;justify-content:center;padding:18px;z-index:80}
+.overlay[hidden]{display:none}
+.panel{width:100%;max-width:800px;max-height:calc(100% - 8px);background:var(--surface-100);border-radius:22px;box-shadow:0 30px 70px rgba(0,0,0,.38);display:flex;flex-direction:column;overflow:hidden}
+.panel-top{display:flex;align-items:center;gap:12px;padding:16px 18px;border-bottom:1px solid var(--line);flex-shrink:0}
+.panel-id{display:flex;flex-direction:column;line-height:1.2}
+.panel-name{font-size:18px;font-weight:700}
+.panel-full{font-size:12px;color:var(--ink-muted)}
+.panel-badge{margin-left:4px;font-size:11px;font-weight:700;letter-spacing:.03em;padding:5px 10px;border-radius:999px;background:var(--stat-soft);color:var(--stat);white-space:nowrap}
+.panel-close{margin-left:auto;width:34px;height:34px;border-radius:50%;border:1px solid var(--line);background:var(--surface-200);color:var(--ink);display:flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0}
+.panel-close:hover{background:var(--surface-300)}
+
+.panel-tabs{display:flex;gap:4px;padding:10px 14px 0;border-bottom:1px solid var(--line);flex-shrink:0;overflow-x:auto}
+.ptab{border:none;background:none;color:var(--ink-muted);font:inherit;font-weight:600;font-size:14px;padding:10px 14px;border-bottom:2.5px solid transparent;cursor:pointer;white-space:nowrap}
+.ptab[aria-selected="true"]{color:var(--stat);border-color:var(--stat)}
+.ptab:hover{color:var(--ink)}
+
+.panel-body{overflow-y:auto;padding:20px;flex:1 1 auto;min-height:0}
+.pane[hidden]{display:none}
+
+.mon{position:relative;background:var(--surface-200);border:1px solid var(--line);border-radius:14px;overflow:hidden;margin-bottom:20px}
+.mon canvas{display:block;width:100%;height:100%}
+.mon-readout{position:absolute;left:10px;bottom:8px;font-size:13px;padding:3px 9px;border-radius:7px;background:rgba(0,0,0,.55);color:#9dffc9}
+.mon-label{position:absolute;right:10px;top:8px;font-size:11px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--ink-muted)}
+#explainMon{height:150px}
+#simMon{height:200px}
+
+.ex-block{margin-bottom:18px}
+.ex-block h3{font-size:15px;font-weight:700;color:var(--stat);margin-bottom:8px;display:flex;align-items:center;gap:8px}
+.ex-block h3::before{content:"";width:8px;height:8px;border-radius:2px;background:var(--stat)}
+.ex-block p{font-size:15px;line-height:1.65;color:var(--ink)}
+.ex-block ul{margin:0;padding-left:20px;font-size:15px;line-height:1.65;color:var(--ink)}
+.ex-block li{margin-bottom:6px}
+.ex-source{font-size:12.5px;color:var(--ink-muted);border-top:1px dashed var(--line);padding-top:12px;margin-top:18px}
+
+.sim-controls{display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin-top:-6px;margin-bottom:18px;padding:14px 16px;background:var(--surface-200);border:1px solid var(--line);border-radius:14px}
+.play-btn{display:inline-flex;align-items:center;gap:8px;border:none;border-radius:999px;background:var(--stat);color:var(--on-brand);font:inherit;font-weight:700;font-size:14px;padding:10px 18px;cursor:pointer}
+.play-btn:hover{filter:brightness(1.08)}
+.speed-wrap{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--ink-muted)}
+.speed-wrap input{accent-color:var(--stat)}
+.sim-note{font-size:14px;line-height:1.6;color:var(--ink-muted)}
+.sim-note strong{color:var(--ink)}
+
+.flow-fig{margin:0}
+.flow-fig svg{width:100%;height:auto;display:block}
+.flow-fig figcaption{margin-top:12px;font-size:12.5px;color:var(--ink-muted);line-height:1.6}
+
+@media (max-width:560px){
+  .panel-name{font-size:16px}
+  #simMon{height:170px}
+}
+
+/* -------- flowchart svg -------- */
+.flow-fig svg{color:var(--ink)}
+.flow-fig .fnode{fill:var(--surface-200);stroke:var(--line)}
+.flow-fig .fnode.decision{fill:var(--surface-200);stroke:var(--warning)}
+.flow-fig .fnode.action{fill:var(--stat);stroke:var(--stat)}
+.flow-fig .fnode.critical{fill:var(--danger);stroke:var(--danger)}
+.flow-fig .fnode.end{fill:var(--success);stroke:var(--success)}
+.flow-fig .flabel{fill:currentColor;font-size:11.5px;font-family:'Inter',system-ui,sans-serif}
+.flow-fig .flabel.on-action{fill:var(--on-brand);font-weight:600}
+.flow-fig .farrow{stroke:currentColor;stroke-width:1.6;fill:none;opacity:.8}
+.flow-fig .fedge-label{fill:var(--ink-muted);font-size:10.5px;font-family:'Inter',system-ui,sans-serif}
+
+/* scoped status accents, mirrored on the quadrant cards and the modal panel */
+.quad--afib,.panel--afib{--stat:var(--status-afib);--stat-soft:var(--status-afib-soft)}
+.quad--svt,.panel--svt{--stat:var(--status-svt);--stat-soft:var(--status-svt-soft)}
+.quad--vt,.panel--vt{--stat:var(--status-vt);--stat-soft:var(--status-vt-soft)}
+.quad--vf,.panel--vf{--stat:var(--status-vf);--stat-soft:var(--status-vf-soft)}
+
+@media (prefers-reduced-motion: reduce){
+  .mon canvas{ /* static frame only, handled in script */ }
+}
+</style>
+
+<div class="wrap">
+
+  <header class="top">
+    <div class="brandrow">
+      <div class="brandmark">
+        <span class="logo-badge" aria-hidden="true"><svg viewBox="0 0 64 24"><polyline points="0,12 14,12 19,4 24,20 29,8 34,12 64,12"/></svg></span>
+        <span class="wordmark">CardioRitmo</span>
+      </div>
+      <span class="sources-pill"><span class="dot"></span> Guías AHA · ACLS 2020 · FA 2023 · SVT 2015</span>
+    </div>
+    <p class="tagline">Módulo interactivo de electrocardiografía — Facultad de Medicina, Universidad de Manizales.</p>
+    <p class="intro">Elige una arritmia: al hacer clic se abre su ficha con el <strong>trazado de ECG en vivo</strong>, la explicación clínica y el <strong>flujograma de manejo</strong> adaptado de las guías AHA.</p>
+  </header>
+
+  <main class="board" id="board">
+    <!-- quadrant cards are injected by script -->
+  </main>
+
+  <footer class="site-footer">
+    <p>Contenido con fines educativos para estudiantes de pregrado de Medicina. No reemplaza el juicio clínico ni las guías oficiales vigentes; ante un paciente real, siga siempre el protocolo institucional y la guía AHA/ACLS actualizada.</p>
+    <ul>
+      <li><a href="https://cpr.heart.org/en/resuscitation-science/cpr-and-ecc-guidelines" target="_blank" rel="noopener">American Heart Association — Guidelines for CPR &amp; ECC (ACLS 2020)</a></li>
+      <li><a href="https://www.ahajournals.org/doi/10.1161/CIR.0000000000001193" target="_blank" rel="noopener">2023 ACC/AHA/ACCP/HRS Guideline for the Diagnosis and Management of Atrial Fibrillation</a></li>
+      <li><a href="https://www.ahajournals.org/doi/10.1161/cir.0000000000000311" target="_blank" rel="noopener">2015 ACC/AHA/HRS Guideline for the Management of Adult Supraventricular Tachycardia</a></li>
+    </ul>
+  </footer>
+</div>
+
+<div class="overlay" id="overlay" hidden>
+  <div class="panel" role="dialog" aria-modal="true" id="panel">
+    <div class="panel-top">
+      <div class="panel-id">
+        <span class="panel-name" id="panelName">—</span>
+        <span class="panel-full" id="panelFull">—</span>
+      </div>
+      <span class="panel-badge" id="panelBadge">—</span>
+      <button class="panel-close" id="panelClose" aria-label="Cerrar">✕</button>
+    </div>
+    <div class="panel-tabs" role="tablist">
+      <button class="ptab" id="tabExplain" role="tab" aria-selected="true">Explicación</button>
+      <button class="ptab" id="tabSim" role="tab" aria-selected="false">Simulador</button>
+      <button class="ptab" id="tabFlow" role="tab" aria-selected="false">Flujograma de manejo</button>
+    </div>
+    <div class="panel-body">
+      <section class="pane" id="paneExplain">
+        <div class="mon" id="explainMon"><canvas id="explainCanvas"></canvas><span class="mon-readout mono" id="explainHr">—</span><span class="mon-label">Trazado en vivo</span></div>
+        <div class="ex-block"><h3>Fisiopatología</h3><p id="exPhysio">—</p></div>
+        <div class="ex-block"><h3>Criterios en el ECG</h3><ul id="exCriteria"></ul></div>
+        <div class="ex-block"><h3>Manejo clínico — resumen</h3><p id="exManagement">—</p></div>
+        <p class="ex-source" id="exSource">—</p>
+      </section>
+      <section class="pane" id="paneSim" hidden>
+        <div class="mon" id="simMon"><canvas id="simCanvas"></canvas><span class="mon-readout mono" id="simHr">—</span><span class="mon-label">Simulador</span></div>
+        <div class="sim-controls">
+          <button class="play-btn" id="simPlay">⏸ Pausar</button>
+          <div class="speed-wrap">
+            <label for="simSpeed">Velocidad</label>
+            <input type="range" id="simSpeed" min="0.5" max="2" step="0.1" value="1">
+          </div>
+        </div>
+        <p class="sim-note" id="simNote">—</p>
+      </section>
+      <section class="pane" id="paneFlow" hidden>
+        <figure class="flow-fig" id="flowFig"></figure>
+      </section>
+    </div>
+  </div>
+</div>
+
+<script>
+(function(){
+"use strict";
+
+var REDUCED_MOTION = !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
+
+/* ============================= small decorative pulse icon ============================= */
+var PULSE_ICON = '<svg viewBox="0 0 64 24" aria-hidden="true"><polyline points="0,12 14,12 19,4 24,20 29,8 34,12 64,12"/></svg>';
+
+/* ============================= waveform math ============================= */
+var PX_PER_MS = 1/12; // ~1 buffer column per 12ms of simulated time at 1x speed
+
+function gauss(t,mu,sigma){ var d=(t-mu)/sigma; return Math.exp(-0.5*d*d); }
+
+// Composite QRS-T template built from Gaussian lobes, scaled by `wide` for the
+// broad, slurred morphology of a ventricular (wide-complex) beat.
+function qrsY(tau, wide){
+  var w = wide ? 1.75 : 1.0;
+  var y = 0;
+  y += -0.11*gauss(tau, -15*w, 6*w);   // Q
+  y +=  1.00*gauss(tau,   0,   6*w);   // R
+  y += -0.28*gauss(tau,  18*w, 8*w);   // S
+  if(wide){ y += -0.16*gauss(tau, 46*w, 14*w); } // slurred terminal notch: bizarre wide-complex morphology
+  y +=  0.24*gauss(tau, 175*w, 48*w);  // T
+  return y;
+}
+function pWaveY(tau){ return 0.15*gauss(tau,-175,20); }
+
+function stepRhythm(st, key, dtMs){
+  st.clock = (st.clock||0) + dtMs;
+
+  if(key==='vf'){
+    // No organized depolarization at all: a chaotic sum of drifting oscillators,
+    // re-tuned every ~150-350ms, with amplitude swinging between coarse and fine VF.
+    if(!st.osc){
+      st.osc=[{f:5.1,ph:0,target:5.1},{f:7.3,ph:Math.random()*6,target:7.3},
+              {f:3.4,ph:Math.random()*6,target:3.4},{f:9.6,ph:Math.random()*6,target:9.6}];
+      st.ampMod=1; st.retuneAt=0;
+    }
+    if(st.clock>st.retuneAt){
+      for(var i=0;i<st.osc.length;i++){ st.osc[i].target = 2+Math.random()*9.5; }
+      st.ampMod = 0.45+Math.random()*1.0;
+      st.retuneAt = st.clock + 150+Math.random()*220;
+    }
+    var yv=0;
+    for(var j=0;j<st.osc.length;j++){
+      var o=st.osc[j];
+      o.f += (o.target-o.f)*0.03;
+      o.ph += o.f*dtMs/1000*2*Math.PI;
+      yv += Math.sin(o.ph);
+    }
+    yv = (yv/st.osc.length)*st.ampMod;
+    yv += (Math.random()-0.5)*0.14;
+    return {y:yv, beat:false, rate:null};
+  }
+
+  if(st.nextBeatAt===undefined){ st.nextBeatAt = st.clock + 150 + Math.random()*150; st.lastBeatAt = st.clock; }
+  var beat=false;
+  if(st.clock >= st.nextBeatAt){
+    beat=true;
+    st.lastBeatAt = st.clock;
+    var rr;
+    // Rates kept inside the ranges named in each rhythm's own ECG criteria, so the
+    // simulator never shows something the text doesn't claim.
+    if(key==='afib'){ var rate = 50+Math.random()*120; rr = 60000/rate; }               // 50-170 bpm, irregularly irregular
+    else if(key==='svt'){ var rateS = 150+Math.random()*100; rr = 60000/rateS; }         // 150-250 bpm, regular
+    else { var rateV = 150+Math.random()*50; rr = 60000/rateV; }                        // vt: 150-200 bpm, regular
+    st.lastRR = rr;
+    st.nextBeatAt = st.clock + rr;
+  }
+  var tau = st.clock - st.lastBeatAt;
+  var wide = (key==='vt');
+  var y = qrsY(tau, wide);
+
+  if(key==='afib'){
+    // fibrillatory baseline instead of organized P waves, ~350-520/min undulation
+    if(!st.fib) st.fib=[{f:6.2,ph:Math.random()*6},{f:7.8,ph:Math.random()*6},{f:5.1,ph:Math.random()*6}];
+    var fb=0;
+    for(var k=0;k<st.fib.length;k++){ st.fib[k].ph += st.fib[k].f*dtMs/1000*2*Math.PI; fb+=Math.sin(st.fib[k].ph); }
+    y += (fb/st.fib.length)*0.08;
+  }
+  if(key==='vt'){
+    // independent, slower atrial activity: AV dissociation, unrelated to the QRS clock
+    if(st.atrialNextAt===undefined){ st.atrialNextAt = st.clock+300; st.atrialLastAt=-9999; }
+    if(st.clock>=st.atrialNextAt){ st.atrialLastAt=st.clock; st.atrialNextAt=st.clock+60000/(76+Math.random()*10); }
+    y += pWaveY(st.clock-st.atrialLastAt)*0.5;
+  }
+  var rate2 = st.lastRR ? Math.round(60000/st.lastRR) : null;
+  return {y:y, beat:beat, rate:rate2};
+}
+
+/* ============================= engine (monitor canvas only) ============================= */
+var ENGINES = [];
+
+function Engine(key, canvas, hrEl){
+  this.key = key;
+  this.canvas = canvas;
+  this.hrEl = hrEl;
+  this.state = {};
+  this.buf = [];
+  this.carry = 0;
+  this.speed = 1;
+  this.running = true;
+  this.userPaused = false;
+  this.resize();
+}
+Engine.prototype.resize = function(){
+  var w = Math.max(1, Math.round(this.canvas.clientWidth));
+  var h = Math.max(1, Math.round(this.canvas.clientHeight));
+  if(w<=1 || h<=1) return;
+  var dpr = Math.min(window.devicePixelRatio||1, 2);
+  this.canvas.width = Math.round(w*dpr);
+  this.canvas.height = Math.round(h*dpr);
+  var ctx = this.canvas.getContext('2d');
+  ctx.setTransform(dpr,0,0,dpr,0,0);
+  this.buf = new Array(w).fill(0);
+};
+Engine.prototype.step = function(dtRealMs){
+  if(!this.running) return;
+  var w = this.canvas.clientWidth;
+  if(w<=1) return;
+  if(this.buf.length!==w) this.resize();
+  var dtSim = dtRealMs*this.speed;
+  this.carry += dtSim*PX_PER_MS;
+  var beatHappened=false, lastRate=null, cols=0;
+  var msPerCol = 1/PX_PER_MS;
+  while(this.carry>=1 && cols<400){
+    this.carry-=1; cols++;
+    var r = stepRhythm(this.state, this.key, msPerCol);
+    this.buf.push(r.y);
+    if(this.buf.length>w) this.buf.shift();
+    if(r.beat){ beatHappened=true; lastRate=r.rate; }
+  }
+  if(cols>0) this.draw();
+  if(beatHappened){ this.updateHr(lastRate); }
+  else if(this.key==='vf' && cols>0 && !this._vfLabelled){ this.updateHr(null); this._vfLabelled=true; }
+};
+Engine.prototype.updateHr = function(rate){
+  if(!this.hrEl) return;
+  if(this.key==='afib'){ this.hrEl.textContent = rate+' lpm · irregular'; }
+  else if(this.key==='svt'){ this.hrEl.textContent = rate+' lpm · regular'; }
+  else if(this.key==='vt'){ this.hrEl.textContent = rate+' lpm · regular'; }
+  else { this.hrEl.textContent = 'sin pulso'; }
+};
+Engine.prototype.draw = function(){
+  var ctx = this.canvas.getContext('2d');
+  var w = this.canvas.clientWidth, h = this.canvas.clientHeight;
+  if(w<=0||h<=0) return;
+  ctx.clearRect(0,0,w,h);
+  var cs = getComputedStyle(this.canvas);
+  var gridColor = (cs.getPropertyValue('--grid')||'').trim() || '#dcebe8';
+  var traceColor = (cs.getPropertyValue('--trace')||'').trim() || '#0ea65e';
+  ctx.strokeStyle = gridColor; ctx.lineWidth = 1;
+  ctx.beginPath();
+  var step=16;
+  for(var x=0;x<w;x+=step){ ctx.moveTo(x+0.5,0); ctx.lineTo(x+0.5,h); }
+  for(var y=0;y<h;y+=step){ ctx.moveTo(0,y+0.5); ctx.lineTo(w,y+0.5); }
+  ctx.stroke();
+  var mid=h*0.56, amp=h*0.36;
+  ctx.strokeStyle = traceColor; ctx.lineWidth = 2.2; ctx.lineJoin='round'; ctx.lineCap='round';
+  ctx.beginPath();
+  var buf=this.buf, off=Math.max(0, buf.length-w);
+  for(var i=off;i<buf.length;i++){
+    var xi=i-off, yv=mid-buf[i]*amp;
+    if(xi===0) ctx.moveTo(xi,yv); else ctx.lineTo(xi,yv);
+  }
+  ctx.stroke();
+};
+
+var lastTick=null;
+function rafLoop(now){
+  requestAnimationFrame(rafLoop);
+  if(lastTick==null) lastTick=now;
+  var dt=now-lastTick; lastTick=now;
+  if(dt>250) dt=250;
+  for(var i=0;i<ENGINES.length;i++){ ENGINES[i].step(dt); }
+}
+requestAnimationFrame(rafLoop);
+
+window.addEventListener('resize', function(){
+  ENGINES.forEach(function(e){ e.resize(); });
+});
+
+/* ============================= flowchart builder ============================= */
+function escapeXml(s){
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+function textLines(cx,cy,lines,cls){
+  var n=lines.length, out='';
+  for(var i=0;i<n;i++){
+    var y = cy + i*14 - (n-1)*7 + 4;
+    out += '<text class="'+cls+'" x="'+cx+'" y="'+y+'" text-anchor="middle">'+escapeXml(lines[i])+'</text>';
+  }
+  return out;
+}
+function fbox(cx,cy,w,h,lines,kind){
+  var x=cx-w/2, y=cy-h/2;
+  var cls='fnode'+(kind?(' '+kind):'');
+  var textCls=(kind==='action'||kind==='critical'||kind==='end')?'flabel on-action':'flabel';
+  return '<rect class="'+cls+'" x="'+x+'" y="'+y+'" width="'+w+'" height="'+h+'" rx="12"/>'+textLines(cx,cy,lines,textCls);
+}
+function fdiamond(cx,cy,w,h,lines){
+  var pts=cx+','+(cy-h/2)+' '+(cx+w/2)+','+cy+' '+cx+','+(cy+h/2)+' '+(cx-w/2)+','+cy;
+  return '<polygon class="fnode decision" points="'+pts+'"/>'+textLines(cx,cy,lines,'flabel');
+}
+function farrowV(x1,y1,x2,y2,label){
+  var s='<path class="farrow" d="M'+x1+','+y1+' L'+x2+','+y2+'" marker-end="url(#fArrow)"/>';
+  if(label){ s+='<text class="fedge-label" x="'+(x1+10)+'" y="'+((y1+y2)/2)+'" text-anchor="start">'+escapeXml(label)+'</text>'; }
+  return s;
+}
+function farrowH(x1,y1,x2,y2,label){
+  var midx=(x1+x2)/2;
+  var s='<path class="farrow" d="M'+x1+','+y1+' L'+x2+','+y2+'" marker-end="url(#fArrow)"/>';
+  if(label){ s+='<text class="fedge-label" x="'+midx+'" y="'+(y1-8)+'" text-anchor="middle">'+escapeXml(label)+'</text>'; }
+  return s;
+}
+
+function buildFlow(steps){
+  var trunkX=160, trunkW=240, branchX=430, branchW=180;
+  var y=48, parts=[], prevBottom=null, pendingLabel=null;
+
+  steps.forEach(function(step){
+    if(step.type==='decision'){
+      var h=28+step.lines.length*18+22; h=Math.max(h,84);
+      var top=y, cy=y+h/2, bottom=y+h;
+      if(prevBottom!=null){ parts.push(farrowV(trunkX, prevBottom, trunkX, top, pendingLabel)); }
+      parts.push(fdiamond(trunkX,cy,trunkW,h,step.lines));
+      var bh=30+step.branch.lines.length*16+20; bh=Math.max(bh,60);
+      parts.push(farrowH(trunkX+trunkW/2, cy, branchX-branchW/2, cy, step.branch.label));
+      parts.push(fbox(branchX,cy,branchW,bh,step.branch.lines,step.branch.kind));
+      pendingLabel = step.trunkLabel||null;
+      prevBottom = bottom;
+      y = bottom + 54;
+    } else {
+      var hh=30+step.lines.length*16+20; hh=Math.max(hh,58);
+      var top2=y, cy2=y+hh/2, bottom2=y+hh;
+      if(prevBottom!=null){ parts.push(farrowV(trunkX, prevBottom, trunkX, top2, pendingLabel)); pendingLabel=null; }
+      parts.push(fbox(trunkX,cy2,trunkW,hh,step.lines,step.kind));
+      prevBottom = bottom2;
+      y = bottom2 + 44;
+    }
+  });
+
+  var totalH = prevBottom + 30;
+  var totalW = branchX + branchW/2 + 24;
+  var defs = '<defs><marker id="fArrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="currentColor"/></marker></defs>';
+  return '<svg viewBox="0 0 '+totalW+' '+totalH+'" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Flujograma de manejo">'
+    + defs + parts.join('') + '</svg>';
+}
+
+/* ============================= clinical content ============================= */
+var RHYTHMS = {
+  afib: {
+    key:'afib', eyebrow:'Arritmia auricular', name:'Fibrilación auricular', full:'Fibrilación auricular (FA)',
+    badge:'Con pulso · no desfibrilable',
+    physio:'Múltiples frentes de reentrada caóticos —a menudo originados cerca de las venas pulmonares— sustituyen la activación ordenada que normalmente parte del nodo sinusal. Las aurículas "tiemblan" en vez de contraerse de forma coordinada, y el nodo auriculoventricular conduce de manera errática solo una parte de esos impulsos hacia los ventrículos. De ahí el ritmo irregularmente irregular que se observa en el ECG.',
+    criteria:[
+      'Ritmo irregularmente irregular: la distancia R-R varía latido a latido, sin ningún patrón.',
+      'Ausencia de ondas P organizadas, reemplazadas por ondas «f» fibrilatorias finas o gruesas.',
+      'Línea de base sin segmento isoeléctrico claro.',
+      'QRS angosto, salvo aberrancia o bloqueo de rama preexistente.',
+      'Frecuencia ventricular variable: de aproximadamente 50 a 170 latidos por minuto.'
+    ],
+    management:'Si hay inestabilidad hemodinámica, cardioversión eléctrica sincronizada inmediata. Si el paciente está estable, control de frecuencia con betabloqueador o calcioantagonista no dihidropiridínico, estratificación del riesgo tromboembólico con CHA₂DS₂-VASc, y una decisión individualizada sobre el control de ritmo (cardioversión, antiarrítmico o ablación con catéter).',
+    source:'Adaptado de la guía 2023 ACC/AHA/ACCP/HRS para el diagnóstico y manejo de la fibrilación auricular.',
+    simNote:'observa cómo la distancia entre cada latido cambia de forma impredecible: esa variabilidad sin patrón es la «irregularidad irregular» que define a la FA en el ECG.',
+    flow:[
+      {type:'process', lines:['FA confirmada en el ECG','(irregularmente irregular, sin onda P)']},
+      {type:'decision', lines:['¿Inestable?','(hipotensión, choque, dolor','isquémico o ICC aguda)'], trunkLabel:'No, estable',
+        branch:{label:'Sí, inestable', kind:'critical', lines:['Cardioversión eléctrica','sincronizada']}},
+      {type:'process', lines:['Control de frecuencia: betabloqueador','o calcioantagonista no-DHP','(± digoxina si hay ICC)']},
+      {type:'process', lines:['Calcular CHA₂DS₂-VASc y valorar control','de ritmo (cardioversión, antiarrítmico','o ablación con catéter)']},
+      {type:'decision', lines:['¿CHA₂DS₂-VASc ≥2 (H)','o ≥3 (M)?'], trunkLabel:'No',
+        branch:{label:'Sí', kind:'action', lines:['Anticoagulación','oral']}},
+      {type:'process', kind:'end', lines:['Seguimiento ambulatorio y','reevaluación periódica del riesgo']}
+    ]
+  },
+  svt: {
+    key:'svt', eyebrow:'Arritmia de la unión AV', name:'Taquicardia supraventricular', full:'Taquicardia supraventricular (TSV)',
+    badge:'Con pulso · no desfibrilable',
+    physio:'Un circuito de reentrada queda confinado al nodo auriculoventricular (AVNRT, la forma más frecuente) o utiliza, además del nodo AV, una vía accesoria (AVRT). El impulso circula en un bucle cerrado que despolariza aurículas y ventrículos casi al mismo tiempo, por lo que la onda P queda oculta dentro del QRS o aparece justo después de él.',
+    criteria:[
+      'Taquicardia regular de complejo angosto, con frecuencia entre 150 y 250 lpm.',
+      'Inicio y terminación abruptos (carácter paroxístico).',
+      'Ondas P ausentes o retrógradas, justo después del QRS.',
+      'QRS angosto salvo conducción aberrante o preexcitación.'
+    ],
+    management:'Si el paciente está inestable, cardioversión eléctrica sincronizada. Si está estable, maniobras vagales primero (Valsalva, masaje del seno carotídeo); si no ceden, adenosina 6 mg IV en bolo rápido con lavado inmediato, seguida de una segunda dosis de 12 mg si persiste. Si aun así continúa, betabloqueador o calcioantagonista no dihidropiridínico IV. La ablación con catéter es la primera línea a largo plazo para la TSV recurrente sintomática.',
+    source:'Adaptado de la guía 2015 ACC/AHA/HRS para el manejo de la taquicardia supraventricular del adulto.',
+    simNote:'el trazado es rápido pero perfectamente regular, y no se identifican ondas P: el nodo AV y las aurículas laten casi al mismo tiempo, latido tras latido, sin ninguna variación en la distancia R-R.',
+    flow:[
+      {type:'process', lines:['TSV confirmada: regular,','angosta, 150–250 lpm']},
+      {type:'decision', lines:['¿Inestable?'], trunkLabel:'No, estable',
+        branch:{label:'Sí', kind:'critical', lines:['Cardioversión','sincronizada']}},
+      {type:'process', lines:['Maniobras vagales','(Valsalva, masaje carotídeo)']},
+      {type:'decision', lines:['¿Persiste?'], trunkLabel:'Sí, persiste',
+        branch:{label:'No, cedió', kind:'end', lines:['Ritmo sinusal —','observar']}},
+      {type:'process', lines:['Adenosina 6 mg IV en bolo','rápido + lavado con SSN']},
+      {type:'decision', lines:['¿Persiste?'], trunkLabel:'Sí, persiste',
+        branch:{label:'No, cedió', kind:'end', lines:['Ritmo sinusal —','observar']}},
+      {type:'process', lines:['Adenosina 12 mg IV; si refractaria,','betabloqueador o calcioantagonista IV']},
+      {type:'process', kind:'action', lines:['Ablación con catéter si es recurrente','(primera línea a largo plazo)']}
+    ]
+  },
+  vt: {
+    key:'vt', eyebrow:'Arritmia ventricular', name:'Taquicardia ventricular', full:'Taquicardia ventricular (TV)',
+    badge:'Desfibrilable si no hay pulso',
+    physio:'Un circuito de reentrada o un foco ectópico dentro del miocardio ventricular —casi siempre sobre una cicatriz isquémica previa— generan la taquicardia. Es monomórfica cuando un único circuito produce complejos idénticos entre sí, y polimórfica cuando la morfología varía latido a latido, como ocurre en la torsade de pointes asociada a QT prolongado.',
+    criteria:[
+      'QRS ancho, mayor de 120 ms, a una frecuencia igual o mayor a 100 lpm (típicamente 150–200).',
+      'Puede ser monomórfica (misma forma) o polimórfica (forma variable).',
+      'La disociación auriculoventricular —ondas P disociadas, latidos de fusión o captura— confirma el origen ventricular.',
+      'Ante la duda frente a una taquicardia de complejo ancho, la recomendación es tratarla como TV.'
+    ],
+    management:'Sin pulso, se trata exactamente igual que la fibrilación ventricular: RCP y desfibrilación inmediatas. Con pulso e inestable, cardioversión eléctrica sincronizada. Con pulso y estable, antiarrítmico intravenoso —amiodarona de elección— evitando procainamida y sotalol si hay QT prolongado, por el riesgo de torsade de pointes. A largo plazo se valora desfibrilador automático implantable, ablación o antiarrítmicos de mantenimiento.',
+    source:'Adaptado del algoritmo de taquicardia con pulso, American Heart Association ACLS 2020.',
+    simNote:'cada complejo es ancho, con una muesca terminal "bizarra", y conserva la misma forma (monomórfica). Fíjate en la pequeña onda independiente y más lenta que no guarda relación con los complejos anchos: representa la disociación auriculoventricular.',
+    flow:[
+      {type:'process', lines:['Taquicardia de complejo ancho','(QRS >120 ms, ≥100 lpm)']},
+      {type:'decision', lines:['¿Tiene pulso?'], trunkLabel:'Sí, con pulso',
+        branch:{label:'No, sin pulso', kind:'critical', lines:['Tratar como FV:','RCP + desfibrilación']}},
+      {type:'decision', lines:['¿Inestable?','(hipotensión, choque,','ICC aguda)'], trunkLabel:'No, estable',
+        branch:{label:'Sí, inestable', kind:'critical', lines:['Cardioversión','sincronizada']}},
+      {type:'process', lines:['¿QT prolongado basal? De ser así,','evitar procainamida y sotalol','(riesgo de torsade de pointes)']},
+      {type:'process', kind:'action', lines:['Antiarrítmico IV: amiodarona','(de elección) o procainamida']},
+      {type:'process', kind:'end', lines:['Valorar DAI, ablación o','antiarrítmico de mantenimiento']}
+    ]
+  },
+  vf: {
+    key:'vf', eyebrow:'Arritmia ventricular — paro', name:'Fibrilación ventricular', full:'Fibrilación ventricular (FV)',
+    badge:'Desfibrilable · paro cardiaco',
+    physio:'La activación eléctrica ventricular se vuelve totalmente caótica y desorganizada, con múltiples frentes de reentrada simultáneos. No existe contracción ventricular coordinada: el corazón «tiembla» sin bombear sangre, lo que lleva a la pérdida inmediata del gasto cardíaco.',
+    criteria:[
+      'Ritmo caótico, sin complejos QRS, ondas P ni T identificables.',
+      'Amplitud variable: FV gruesa (>0,5 mV, mejor pronóstico) o fina (peor pronóstico).',
+      'Frecuencia desorganizada, habitualmente mayor de 300 por minuto.',
+      'No genera gasto cardíaco: el paciente está sin pulso y sin respuesta.'
+    ],
+    management:'Es un ritmo desfibrilable del algoritmo de paro cardiaco: RCP de alta calidad inmediata y desfibrilación tan pronto se confirme el ritmo, epinefrina 1 mg IV/IO cada 3 a 5 minutos, y amiodarona o lidocaína si persiste tras varias descargas, buscando siempre causas reversibles (las «H» y las «T»).',
+    source:'Adaptado del algoritmo de paro cardiaco en adultos, American Heart Association ACLS 2020.',
+    simNote:'no hay ningún patrón reconocible ni complejos QRS: esa ausencia total de organización eléctrica es justo lo que hace que el corazón no pueda bombear sangre. Observa también cómo la amplitud cambia entre fases más gruesas y más finas.',
+    flow:[
+      {type:'process', lines:['Paro cardiaco — ritmo','desfibrilable (FV / TV sin pulso)']},
+      {type:'process', kind:'critical', lines:['RCP de alta calidad inmediata','(100–120/min, 30:2) + desfibrilar','120–200 J bifásico']},
+      {type:'process', lines:['Reanudar RCP 2 min','y obtener acceso IV/IO']},
+      {type:'decision', lines:['¿Ritmo desfibrilable','persiste?'], trunkLabel:'Sí, persiste',
+        branch:{label:'No, organizado', kind:'end', lines:['Verificar pulso:','cuidados post-paro']}},
+      {type:'process', kind:'critical', lines:['Desfibrilar + epinefrina 1 mg IV/IO','cada 3–5 min + RCP 2 min']},
+      {type:'process', kind:'action', lines:['Si persiste: amiodarona 300 mg IV','(2ª dosis 150 mg) o lidocaína','1–1.5 mg/kg, y desfibrilar']},
+      {type:'process', kind:'end', lines:['Repetir el ciclo y buscar causas','reversibles (6H / 5T) hasta lograr RCE']}
+    ]
+  }
+};
+var QUAD_ORDER=['afib','svt','vt','vf'];
+
+/* ============================= board: title-first cards ============================= */
+function buildBoard(){
+  var board=document.getElementById('board');
+  QUAD_ORDER.forEach(function(key){
+    var r=RHYTHMS[key];
+    var el=document.createElement('button');
+    el.type='button';
+    el.className='quad quad--'+key;
+    el.setAttribute('aria-haspopup','dialog');
+    el.innerHTML =
+      '<div class="quad-head">'
+        + '<span class="quad-icon" aria-hidden="true">'+PULSE_ICON+'</span>'
+        + '<span class="quad-badge">'+escapeXml(r.badge)+'</span>'
+      + '</div>'
+      + '<div><div class="quad-eyebrow">'+escapeXml(r.eyebrow)+'</div><div class="quad-title">'+escapeXml(r.name)+'</div></div>'
+      + '<div class="quad-foot"><span>'+escapeXml(r.full)+'</span><span class="quad-hint">Ver ritmo y manejo <span class="chev">→</span></span></div>';
+    board.appendChild(el);
+    el.addEventListener('click', function(){ openPanel(key, el); });
+  });
+}
+
+/* ============================= modal ============================= */
+var explainEngine, simEngine;
+function initModalEngines(){
+  explainEngine = new Engine('afib', document.getElementById('explainCanvas'), document.getElementById('explainHr'));
+  explainEngine.running=false;
+  ENGINES.push(explainEngine);
+
+  simEngine = new Engine('afib', document.getElementById('simCanvas'), document.getElementById('simHr'));
+  simEngine.running=false;
+  ENGINES.push(simEngine);
+}
+
+function cap1(s){ return s.charAt(0).toUpperCase()+s.slice(1); }
+
+function activateTab(tab){
+  ['explain','sim','flow'].forEach(function(k){
+    document.getElementById('tab'+cap1(k)).setAttribute('aria-selected', k===tab?'true':'false');
+    document.getElementById('pane'+cap1(k)).hidden = (k!==tab);
+  });
+  explainEngine.running=false;
+  simEngine.running=false;
+  if(tab==='explain'){
+    explainEngine.resize();
+    explainEngine.running = !REDUCED_MOTION;
+    if(REDUCED_MOTION){ explainEngine.running=true; explainEngine.step(3000); explainEngine.running=false; }
+  }
+  if(tab==='sim'){
+    simEngine.resize();
+    simEngine.running = !simEngine.userPaused && !REDUCED_MOTION;
+    document.getElementById('simPlay').textContent = simEngine.running ? '⏸ Pausar' : '▶ Reproducir';
+    if(REDUCED_MOTION && !simEngine.userPaused){
+      simEngine.running=true; simEngine.step(3000); simEngine.running=false;
+      document.getElementById('simPlay').textContent='▶ Reproducir';
+    }
+  }
+}
+
+function buildFlowchart(key){
+  var fig=document.getElementById('flowFig');
+  fig.innerHTML = buildFlow(RHYTHMS[key].flow);
+  var cap=document.createElement('figcaption');
+  cap.textContent = RHYTHMS[key].source+' Los recuadros resumen el algoritmo de forma didáctica; ante un paciente real, siga siempre el protocolo institucional y la guía vigente completa.';
+  fig.appendChild(cap);
+}
+
+var lastFocused=null;
+function openPanel(key, triggerEl){
+  lastFocused = triggerEl || document.activeElement;
+  var r=RHYTHMS[key];
+  var panel=document.getElementById('panel');
+  panel.className='panel panel--'+key;
+  panel.setAttribute('aria-label', r.full);
+
+  document.getElementById('panelName').textContent = r.name;
+  document.getElementById('panelFull').textContent = r.full;
+  document.getElementById('panelBadge').textContent = r.badge;
+
+  document.getElementById('exPhysio').textContent = r.physio;
+  var ul=document.getElementById('exCriteria');
+  ul.innerHTML='';
+  r.criteria.forEach(function(c){ var li=document.createElement('li'); li.textContent=c; ul.appendChild(li); });
+  document.getElementById('exManagement').textContent = r.management;
+  document.getElementById('exSource').textContent = r.source;
+
+  var simNoteEl=document.getElementById('simNote');
+  simNoteEl.innerHTML='';
+  var strong=document.createElement('strong'); strong.textContent='Qué observar: ';
+  simNoteEl.appendChild(strong);
+  simNoteEl.appendChild(document.createTextNode(r.simNote));
+
+  explainEngine.key=key; explainEngine.state={}; explainEngine._vfLabelled=false;
+  explainEngine.buf = explainEngine.buf.map(function(){ return 0; });
+
+  simEngine.key=key; simEngine.state={}; simEngine.speed=1; simEngine.userPaused=false; simEngine._vfLabelled=false;
+  simEngine.buf = simEngine.buf.map(function(){ return 0; });
+  document.getElementById('simSpeed').value='1';
+
+  buildFlowchart(key);
+  activateTab('explain');
+
+  document.getElementById('overlay').hidden=false;
+  document.getElementById('panelClose').focus();
+}
+
+function closePanel(){
+  document.getElementById('overlay').hidden=true;
+  explainEngine.running=false;
+  simEngine.running=false;
+  if(lastFocused && typeof lastFocused.focus==='function'){ lastFocused.focus(); }
+}
+
+function wireModal(){
+  document.getElementById('tabExplain').addEventListener('click', function(){ activateTab('explain'); });
+  document.getElementById('tabSim').addEventListener('click', function(){ activateTab('sim'); });
+  document.getElementById('tabFlow').addEventListener('click', function(){ activateTab('flow'); });
+  document.getElementById('panelClose').addEventListener('click', closePanel);
+  document.getElementById('overlay').addEventListener('click', function(ev){ if(ev.target===this) closePanel(); });
+  document.addEventListener('keydown', function(ev){
+    if(ev.key==='Escape' && !document.getElementById('overlay').hidden) closePanel();
+  });
+  document.getElementById('simPlay').addEventListener('click', function(){
+    simEngine.running = !simEngine.running;
+    simEngine.userPaused = !simEngine.running;
+    this.textContent = simEngine.running ? '⏸ Pausar' : '▶ Reproducir';
+  });
+  document.getElementById('simSpeed').addEventListener('input', function(){
+    simEngine.speed = parseFloat(this.value)||1;
+  });
+}
+
+/* ============================= init ============================= */
+buildBoard();
+initModalEngines();
+wireModal();
+
+})();
+</script>
